@@ -14,12 +14,13 @@ import (
 
 	"golang.org/x/tools/imports"
 
+	"github.com/walterwanderley/sqlc-grpc/config"
 	"github.com/walterwanderley/sqlc-grpc/converter"
 	"github.com/walterwanderley/sqlc-grpc/metadata"
 	"github.com/walterwanderley/sqlc-grpc/templates"
 )
 
-func process(def *metadata.Definition, appendMode bool) error {
+func process(def *metadata.Definition, appendMode bool, modCfg config.ModConfig, roles []string) error {
 	return fs.WalkDir(templates.Files, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			log.Println("ERROR ", err.Error())
@@ -74,19 +75,21 @@ func process(def *metadata.Definition, appendMode bool) error {
 				return err
 			}
 			for _, pkg := range def.Packages {
-				dest := filepath.Join(dir, converter.ToSnakeCase(pkg.Package), "v1")
+				pkgClone := *pkg
+				pkgClone.ProtoMod(modCfg, roles)
+				dest := filepath.Join(dir, converter.ToSnakeCase(pkgClone.Package), "v1")
 				if _, err := os.Stat(dest); os.IsNotExist(err) {
 					err := os.MkdirAll(dest, 0o750)
 					if err != nil {
 						return err
 					}
 				}
-				destFile := filepath.Join(dest, (converter.ToSnakeCase(pkg.Package) + ".proto"))
+				destFile := filepath.Join(dest, (converter.ToSnakeCase(pkgClone.Package) + ".proto"))
 				if appendMode && fileExists(destFile) {
-					pkg.LoadOptions(destFile)
+					pkgClone.LoadOptions(destFile)
 				}
 
-				err = genFromTemplate(path, string(tpl), pkg, false, destFile)
+				err = genFromTemplate(path, string(tpl), &pkgClone, false, destFile)
 				if err != nil {
 					return err
 				}
@@ -100,7 +103,9 @@ func process(def *metadata.Definition, appendMode bool) error {
 				return err
 			}
 			for _, pkg := range def.Packages {
-				err = genFromTemplate(path, string(tpl), pkg, true, filepath.Join(pkg.SrcPath, "service.go"))
+				pkgClone := *pkg
+				pkgClone.ModServices(modCfg)
+				err = genFromTemplate(path, string(tpl), &pkgClone, true, filepath.Join(pkg.SrcPath, "service.go"))
 				if err != nil {
 					return err
 				}

@@ -20,31 +20,26 @@ import (
 	pb "{{ .GoModule}}/api/{{.Package}}/v1"
 	"{{.GoModule}}/internal/validation"
 )
-	
-type Service struct {
-    pb.Unimplemented{{ .Package | PascalCase}}ServiceServer
-	querier {{if .EmitInterface}}Querier{{else}}*Queries{{end}}
-	{{if .EmitDbArgument}}db {{if eq .SqlPackage "database/sql"}}*sql.DB{{else}}*pgxpool.Pool{{end}}{{end}}
-}
 
 {{$emitDbArgument := .EmitDbArgument}}
+
+{{range .CustomServiceFunctions}}{{ .}}
+{{end}}
+
 {{ range .Services }}
+{{ range .Comments }}
+// {{ . }}{{ end }}
 func (s *Service) {{.Name | UpperFirstCharacter}}(ctx context.Context, req *pb.{{.Name  | UpperFirstCharacter}}Request) (*pb.{{.Name | UpperFirstCharacter}}Response, error) {
 	{{ range . | Input}}{{ .}}
 	{{end}}
+	{{if not .IsBlank}}
 	{{if not .EmptyOutput}}result, {{end}}err := s.querier.{{ .Name}}(ctx{{if $emitDbArgument}}, s.db{{end}}{{ .ParamsCallDatabase}})
 	if err != nil {
 		slog.ErrorContext(ctx,"{{.Name}} sql call failed", "error", err)
 		return nil, err
 	}
+	{{end}}
 	{{ range . | Output}}{{ .}}
 	{{end -}}
 }
 {{ end }}
-{{if not .EmitInterface}}{{if not .EmitDbArgument}}
-func (s *Service) WithTx(tx {{if eq .SqlPackage "pgx/v5"}}pgx.Tx{{else}}*sql.Tx{{end}}) *Service {
-	return &Service{
-		querier: s.querier.WithTx(tx),
-	}
-}
-{{end}}{{end}}

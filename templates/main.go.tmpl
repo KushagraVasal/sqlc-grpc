@@ -101,76 +101,37 @@ func run(cfg server.Config) error {
 		slog.Info("LiteFS cluster is ready")
 	}
 	{{end}}
-
-	{{if .DistributedTracing}}
-	var db {{if eq .SqlPackage "pgx/v5"}}*pgxpool.Pool{{else}}*sql.DB{{end}}
-	if cfg.TracingEnabled() {
-		flush, err := trace.Init(context.Background(), serviceName, cfg.OtlpEndpoint)
-		if err != nil {
-			return err
-		}
-		defer flush()
-		{{if eq .SqlPackage "pgx/v5"}}
-		dbCfg, err := pgxpool.ParseConfig(dbURL)
-		if err != nil {
-    		return err
-		}
-		dbCfg.ConnConfig.Tracer = otelpgx.NewTracer()
-		db, err = pgxpool.NewWithConfig(context.Background(), dbCfg)
-		if err != nil {
-    		return err
-		}
-		{{else}}
-		db, err = otelsql.Open("{{ .DatabaseDriver}}", dbURL, otelsql.WithAttributes(
-			{{if eq .Database "mysql"}}semconv.DBSystemMySQL{{else if eq .Database "sqlite"}}semconv.DBSystemSqlite{{else}}semconv.DBSystemPostgreSQL{{end}},
-		))
-		if err != nil {			
-			return err
-		}
-
-		err = otelsql.RegisterDBStatsMetrics(db, otelsql.WithAttributes(
-			{{if eq .Database "mysql"}}semconv.DBSystemMySQL{{else if eq .Database "sqlite"}}semconv.DBSystemSqlite{{else}}semconv.DBSystemPostgreSQL{{end}},
-		))
-		if err != nil {
-			return err
-		}{{end}}
-	} else {
-	    {{if eq .SqlPackage "pgx/v5"}}db, err = pgxpool.New(context.Background(), dbURL)
-		{{else}}	
-		db, err = sql.Open("{{if eq .Database "mysql"}}mysql{{else if eq .Database "sqlite"}}sqlite3{{else}}pgx{{end}}", dbURL)
-		{{end}}if err != nil {
-			return err
-		}
-	}
-	defer db.Close()
-	{{else}}
-	{{if eq .SqlPackage "pgx/v5"}}
-		db, err := pgxpool.New(context.Background(), dbURL)
-	{{else}}
-	db, err := sql.Open("{{ .DatabaseDriver}}", dbURL)
-	{{end}}if err != nil {
-		return err
-	}
-	defer db.Close()
-	{{end}}
-	{{if .Litestream}}if replicationURL != "" {
-		slog.Info("litestream replication", "url", replicationURL)
-		lsdb, err := litestream.Replicate(context.Background(), dbURL, replicationURL)
-		if err != nil { return fmt.Errorf("init replication error: %w", err) }
-		defer lsdb.Close()
-	}
-	{{end -}}
-	{{if .MigrationPath}}{{if eq .SqlPackage "pgx/v5"}}
-	dbMigration, err := sql.Open("pgx", dbURL)
+	
+	// Database
+	db, err := DbInit(cfg, dbURL)
 	if err != nil {
 		return err
 	}
-	err = ensureSchema(dbMigration)
-	if err != nil { slog.Error("migration error", "error", err) }
-	dbMigration.Close()
-	{{else}}
-	if err := ensureSchema(db); err != nil { slog.Error("migration error", "error", err) }{{end}}{{end}}
-	srv := server.New(cfg, registerServer(db), registerHandlers(), httpHandlers)
+	{{if .TypeSense}}
+	// Typesense
+	ts := TsInit(tsUrl, tsKey)
+	{{end}}
+	{{if .S3}}
+	// S3
+	s3Client, err := S3Init(s3Url, s3AccessKey, s3SecretKey, s3SSL)
+	if err != nil {
+		return err
+	}
+	{{end}}
+	{{if .Nats}}
+	// NATS
+	js, err := NatsInit(natsUrl)
+	if err != nil {
+		return err
+	}
+	{{end}}
+
+	srv := server.New(cfg, registerServer(&authors.ServiceInit{
+		DB:       db,
+		TS:       ts,
+		S3Client: s3Client,
+		JS:       js,
+	}), registerHandlers(), httpHandlers)
 
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)

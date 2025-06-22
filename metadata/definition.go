@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/emicklei/proto"
+	"github.com/walterwanderley/sqlc-grpc/config"
 	"github.com/walterwanderley/sqlc-grpc/converter"
 )
 
@@ -140,7 +141,12 @@ type Package struct {
 	CustomServiceProtoOptions  []string
 	CustomProtoRPCs            []string
 	CustomProtoMessages        []string
+	CustomServiceComments      []string
+	CustomServiceFunctions     []string
 	HasExecResult              bool
+	TypeSense                  bool
+	S3                         bool
+	Nats                       bool
 }
 
 func (p *Package) ProtoImports() []string {
@@ -408,7 +414,7 @@ func (p *Package) importWrappers() bool {
 	return false
 }
 
-func ParsePackage(opts PackageOpts, queriesToIgnore []*regexp.Regexp) (*Package, error) {
+func ParsePackage(opts PackageOpts, queriesToIgnore []*regexp.Regexp, modCfg config.ModConfig, roles []string) (*Package, error) {
 	fset := token.NewFileSet()
 	pkgs, err := parser.ParseDir(fset, opts.Path, nil, parser.ParseComments)
 	if err != nil {
@@ -488,6 +494,8 @@ func ParsePackage(opts PackageOpts, queriesToIgnore []*regexp.Regexp) (*Package,
 				}
 			}
 		}
+
+		p.GlobalMod(modCfg, roles)
 
 		sort.SliceStable(p.Services, func(i, j int) bool {
 			return strings.Compare(p.Services[i].Name, p.Services[j].Name) < 0

@@ -51,9 +51,10 @@ func visitFunc(fun *ast.FuncDecl, def *Package, constants map[string]string) {
 	docs := strings.Split(fun.Doc.Text(), "\n")
 	for _, doc := range docs {
 		doc = strings.TrimSpace(doc)
-		if strings.HasPrefix(doc, "http: ") {
-			opts := strings.Split(strings.TrimPrefix(doc, "http: "), " ")
-			if len(opts) != 2 {
+		if after, ok0 := strings.CutPrefix(doc, "http: "); ok0 {
+			opts := strings.Split(after, " ")
+			if len(opts) < 2 || len(opts) > 3 {
+				// if len(opts) != 2 {
 				continue
 			}
 			httpMethod, httpPath := strings.ToUpper(opts[0]), opts[1]
@@ -62,9 +63,19 @@ func visitFunc(fun *ast.FuncDecl, def *Package, constants map[string]string) {
 			default:
 				continue
 			}
+			roles := []string{}
+			if len(opts) == 3 {
+				_, rolesStr, ok := strings.Cut(opts[2], ":")
+				if ok {
+					for _, r := range strings.Split(rolesStr, ",") {
+						roles = append(roles, converter.ToSnakeCase(r))
+					}
+				}
+			}
 			httpSpecs = append(httpSpecs, HttpSpec{
 				Method: httpMethod,
 				Path:   httpPath,
+				Roles:  roles,
 			})
 		} else {
 			k, v, ok := strings.Cut(doc, ":")

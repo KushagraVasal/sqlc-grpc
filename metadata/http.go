@@ -11,9 +11,18 @@ import (
 type HttpSpec struct {
 	Method string
 	Path   string
+	Roles  []string
 }
 
 func (s *Service) HttpMethod() string {
+	if s.Sql == "" && len(s.HttpSpecs) > 0 {
+		switch strings.ToLower(s.HttpSpecs[0].Method) {
+		case "post", "get", "put", "delete", "patch":
+			return strings.ToLower(s.HttpSpecs[0].Method)
+		default:
+			return "post"
+		}
+	}
 	query := trimHeaderComments(strings.ReplaceAll(s.Sql, "`", ""))
 	query = strings.ToUpper(query)
 	if strings.HasPrefix(query, "SELECT") && s.HasSimpleParams() {
@@ -80,9 +89,7 @@ func (s *Service) HttpOptions() []string {
 
 	res := make([]string, 0)
 	if len(s.HttpSpecs) > 0 {
-		for _, spec := range s.HttpSpecs {
-			res = append(res, s.httpCreateOption(spec.Method, spec.Path)...)
-		}
+		res = append(res, s.httpCreateOption(s.HttpSpecs[0].Method, s.HttpSpecs[0].Path)...)
 	} else {
 		res = append(res, s.httpCreateOption(s.HttpMethod(), s.HttpPath())...)
 	}
@@ -101,6 +108,10 @@ func (s *Service) httpCreateOption(method, path string) []string {
 	if responseBody != "" {
 		res = append(res, fmt.Sprintf("    response_body: \"%s\"", responseBody))
 	}
+	// additionalBindings := s.HttpAdditionalBindings()
+	// if len(additionalBindings) > 0 {
+	// 	res = append(res, fmt.Sprintf("    additional_bindings: %v", additionalBindings))
+	// }
 	res = append(res, "};")
 	return res
 }

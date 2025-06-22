@@ -8,6 +8,7 @@ import (
 
 type Service struct {
 	Name                string
+	Comments            []string
 	InputNames          []string
 	InputTypes          []string
 	Output              string
@@ -17,6 +18,7 @@ type Service struct {
 	CustomProtoOptions  []string
 	HttpSpecs           []HttpSpec
 	CustomSpecs         map[string][]string
+	IsBlank             bool
 }
 
 func (s *Service) ParamsCallDatabase() string {

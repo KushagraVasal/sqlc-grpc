@@ -10,8 +10,32 @@ import (
 	pb "{{ .GoModule}}/api/{{.Package}}/v1"
 )
 
+type ServiceInit struct {
+	{{if .EmitDbArgument}}DB {{if eq .SqlPackage "database/sql"}}*sql.DB{{else}}*pgxpool.Pool{{end}}{{end}}
+	{{if .TypeSense}}TS       *typesense.Client{{end}}
+	{{if .S3}}S3Client *minio.Client{{end}}
+	{{if .Nats}}JS       *jetstream.JetStream{{end}}
+}
+
+type Service struct {
+    pb.Unimplemented{{ .Package | PascalCase}}ServiceServer
+	querier {{if .EmitInterface}}Querier{{else}}*Queries{{end}}
+	{{if .EmitDbArgument}}db {{if eq .SqlPackage "database/sql"}}*sql.DB{{else}}*pgxpool.Pool{{end}}{{end}}
+	{{if .TypeSense}}ts       *typesense.Client{{end}}
+	{{if .S3}}s3Client *minio.Client{{end}}
+	{{if .Nats}}js       *jetstream.JetStream{{end}}
+}
+
 // NewService is a constructor of a pb.{{ .Package | PascalCase}}ServiceServer implementation.
 // Use this function to customize the server by adding middlewares to it.
-func NewService(querier {{if .EmitInterface}}Querier{{else}}*Queries{{end}}, db {{if eq .SqlPackage "database/sql"}}*sql.DB{{else}}*pgxpool.Pool{{end}}) pb.{{ .Package | PascalCase}}ServiceServer {
-	return &Service{querier: querier{{if .EmitDbArgument}}, db: db{{end}}}
+func NewService(querier {{if .EmitInterface}}Querier{{else}}*Queries{{end}}, init *ServiceInit) pb.{{ .Package | PascalCase}}ServiceServer {
+	return &Service{querier: querier{{if .EmitDbArgument}}, db: init.DB{{end}}{{if .TypeSense}}, ts: init.TS{{end}}{{if .S3}}, s3Client: init.S3Client{{end}}{{if .Nats}}, js: init.JS{{end}}}
 }
+
+{{if not .EmitInterface}}{{if not .EmitDbArgument}}
+func (s *Service) WithTx(tx {{if eq .SqlPackage "pgx/v5"}}pgx.Tx{{else}}*sql.Tx{{end}}) *Service {
+	return &Service{
+		querier: s.querier.WithTx(tx),
+	}
+}
+{{end}}{{end}}

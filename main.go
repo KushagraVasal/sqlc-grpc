@@ -14,13 +14,16 @@ import (
 
 	"golang.org/x/mod/modfile"
 
+	"github.com/joho/godotenv"
 	"github.com/walterwanderley/sqlc-grpc/config"
+	"github.com/walterwanderley/sqlc-grpc/converter"
 	"github.com/walterwanderley/sqlc-grpc/metadata"
 )
 
 var (
 	gomodPath          string
 	module             string
+	roles              string
 	ignoreQueries      string
 	migrationPath      string
 	migrationLib       string
@@ -34,11 +37,15 @@ var (
 )
 
 func main() {
+	if err := godotenv.Load(".env"); err != nil {
+		log.Fatalf("Error loading environment variable: %v", err)
+	}
 	flag.BoolVar(&help, "h", false, "Help for this program")
 	flag.BoolVar(&showVersion, "v", false, "Show version")
 	flag.BoolVar(&appendMode, "append", false, "Enable append mode. Don't rewrite editable files")
 	flag.StringVar(&gomodPath, "go.mod", "go.mod", "Path to go.mod file")
 	flag.StringVar(&module, "m", "my-project", "Go module name if there are no go.mod")
+	flag.StringVar(&roles, "r", "", "Comma separated list of roles")
 	flag.StringVar(&ignoreQueries, "i", "", "Comma separated list (regex) of queries to ignore")
 	flag.StringVar(&migrationPath, "migration-path", "", "Path to migration directory")
 	flag.StringVar(&migrationLib, "migration-lib", "goose", "The migration library. goose or migrate")
@@ -83,6 +90,20 @@ func main() {
 		queriesToIgnore = append(queriesToIgnore, regexp.MustCompile(s))
 	}
 
+	modCfg, err := config.LoadModConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	roleNames := make([]string, 0)
+	for _, roleName := range strings.Split(roles, ",") {
+		s := strings.TrimSpace(roleName)
+		if s == "" {
+			continue
+		}
+		roleNames = append(roleNames, converter.ToSnakeCase(s))
+	}
+
 	if m := moduleFromGoMod(); m != "" {
 		log.Println("Using module path from go.mod:", m)
 		module = m
@@ -112,7 +133,7 @@ func main() {
 			EmitParamsPointers: p.EmitParamsStructPointers,
 			EmitResultPointers: p.EmitResultStructPointers,
 			EmitDbArgument:     p.EmitMethodsWithDBArgument,
-		}, queriesToIgnore)
+		}, queriesToIgnore, modCfg, roleNames)
 		if err != nil {
 			log.Fatal("parser error:", err.Error())
 		}
@@ -130,8 +151,13 @@ func main() {
 			continue
 		}
 
+		pkg.TypeSense = os.Getenv("TYPESENSE_URL") != ""
+		pkg.S3 = os.Getenv("S3_URL") != ""
+		pkg.Nats = os.Getenv("NATS_URL") != ""
+
 		def.Packages = append(def.Packages, pkg)
 	}
+
 	sort.SliceStable(def.Packages, func(i, j int) bool {
 		return strings.Compare(def.Packages[i].Package, def.Packages[j].Package) < 0
 	})
@@ -140,7 +166,7 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
-	err = process(&def, appendMode)
+	err = process(&def, appendMode, modCfg, roleNames)
 	if err != nil {
 		log.Fatal("unable to process templates:", err.Error())
 	}
