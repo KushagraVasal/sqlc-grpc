@@ -38,7 +38,7 @@ var (
 
 func main() {
 	if err := godotenv.Load(".env"); err != nil {
-		log.Fatalf("Error loading environment variable: %v", err)
+		log.Printf("Error loading environment variable: %v", err)
 	}
 	flag.BoolVar(&help, "h", false, "Help for this program")
 	flag.BoolVar(&showVersion, "v", false, "Show version")
