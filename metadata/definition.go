@@ -26,6 +26,9 @@ type Definition struct {
 	Litestream         bool
 	DistributedTracing bool
 	Metric             bool
+	TypeSense          bool
+	S3                 bool
+	Nats               bool
 }
 
 func (d *Definition) Validate() error {

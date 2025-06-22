@@ -41,7 +41,14 @@ const (
 const serviceName = "{{ .GoModule}}"
 {{end}}
 var (
-	dbURL string
+	dbURL 		string
+	tsUrl       string
+	tsKey       string
+	s3Url       string
+	s3AccessKey string
+	s3SecretKey string
+	s3SSL       bool
+	natsUrl     string
 	{{if .Litestream}}replicationURL string{{end}}
 	{{if .LiteFS}}litefsConfig   litefs.Config
 	liteFS         *litefs.LiteFS{{end}}
@@ -51,11 +58,22 @@ var (
 )
 
 func main() {
+	if err := godotenv.Load(".env"); err != nil {
+		slog.Error("Error loading environment variable", "error", err)
+	}
 	cfg := server.Config{
 		ServiceName: serviceName,
 	}
 	var dev bool
+	ParseEnv()
 	flag.StringVar(&dbURL, "db", "", "The Database connection URL")
+	{{if .TypeSense}}flag.StringVar(&tsUrl, "ts-url", "", "The Typesense connection URL")
+	flag.StringVar(&tsKey, "ts-key", "", "The Typesense API key"){{end}}
+	{{if .S3}}flag.StringVar(&s3Url, "s3-url", "", "The S3 connection URL")
+	flag.StringVar(&s3AccessKey, "s3-access-key", "", "The S3 access key")
+	flag.StringVar(&s3SecretKey, "s3-secret-key", "", "The S3 secret key")
+	flag.BoolVar(&s3SSL, "s3-ssl", false, "The S3 SSL"){{end}}
+	{{if .Nats}}flag.StringVar(&natsUrl, "nats-url", "", "The NATS connection URL"){{end}}
 	flag.IntVar(&cfg.Port, "port", 5000, "The server port")
 	{{if .Metric}}flag.IntVar(&cfg.PrometheusPort, "prometheus-port", 0, "The metrics server port"){{end}}
 	flag.BoolVar(&cfg.EnableCors, "cors", false, "Enable CORS middleware")
@@ -126,11 +144,11 @@ func run(cfg server.Config) error {
 	}
 	{{end}}
 
-	srv := server.New(cfg, registerServer(&authors.ServiceInit{
+	srv := server.New(cfg, registerServer(&server.ServiceInit{
 		DB:       db,
-		TS:       ts,
-		S3Client: s3Client,
-		JS:       js,
+		{{if .TypeSense}}TS:       ts,{{end}}
+		{{if .S3}}S3Client: s3Client,{{end}}
+		{{if .Nats}}JS:       js,{{end}}
 	}), registerHandlers(), httpHandlers)
 
 	done := make(chan os.Signal, 1)

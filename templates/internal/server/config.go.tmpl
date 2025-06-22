@@ -8,6 +8,10 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/minio/minio-go/v7"
+	"github.com/nats-io/nats.go/jetstream"
+	"github.com/typesense/typesense-go/v3/typesense"
 	"google.golang.org/grpc"
 )
 
@@ -21,6 +25,14 @@ type Config struct {
 
 	Middlewares     []HttpMiddlewareType
 }
+
+type ServiceInit struct {
+	DB {{if eq .SqlPackage "database/sql"}}*sql.DB{{else}}*pgxpool.Pool{{end}}
+	{{if .TypeSense}}TS       *typesense.Client{{end}}
+	{{if .S3}}S3Client *minio.Client{{end}}
+	{{if .Nats}}JS       *jetstream.JetStream{{end}}
+}
+
 {{if .Metric}}
 // PrometheusEnabled check configuration
 func (c Config) PrometheusEnabled() bool {

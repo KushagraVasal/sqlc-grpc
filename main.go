@@ -124,6 +124,9 @@ func main() {
 		Litestream:         litestream,
 		DistributedTracing: distributedTracing,
 		Metric:             metric,
+		TypeSense:          os.Getenv("TYPESENSE_URL") != "",
+		S3:                 os.Getenv("S3_URL") != "",
+		Nats:               os.Getenv("NATS_URL") != "",
 	}
 
 	for _, p := range cfg.Packages {
@@ -151,9 +154,9 @@ func main() {
 			continue
 		}
 
-		pkg.TypeSense = os.Getenv("TYPESENSE_URL") != ""
-		pkg.S3 = os.Getenv("S3_URL") != ""
-		pkg.Nats = os.Getenv("NATS_URL") != ""
+		pkg.TypeSense = def.TypeSense
+		pkg.S3 = def.S3
+		pkg.Nats = def.Nats
 
 		def.Packages = append(def.Packages, pkg)
 	}

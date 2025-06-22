@@ -12,6 +12,11 @@ import (
 	"github.com/XSAM/otelsql"
 	semconv "go.opentelemetry.io/otel/semconv/v1.23.0"
 	{{if eq .SqlPackage "pgx/v5"}}"github.com/jackc/pgx/v5/pgxpool"{{else}}_ "{{ .DatabaseImport}}"{{end}}
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
+	"github.com/typesense/typesense-go/v3/typesense"
 
 	"{{ .GoModule}}/internal/server"
 	"{{ .GoModule}}/internal/server/instrumentation/trace"
@@ -60,8 +65,7 @@ func ParseEnv() {
 }
 
 func DbInit(cfg server.Config, dbURL string) ({{if eq .SqlPackage "pgx/v5"}}*pgxpool.Pool{{else}}*sql.DB{{end}}, error) {
-    {{if .DistributedTracing}}
-	var db {{if eq .SqlPackage "pgx/v5"}}*pgxpool.Pool{{else}}*sql.DB{{end}}
+    {{if .DistributedTracing}}var db {{if eq .SqlPackage "pgx/v5"}}*pgxpool.Pool{{else}}*sql.DB{{end}}
 	if cfg.TracingEnabled() {
 		flush, err := trace.Init(context.Background(), serviceName, cfg.OtlpEndpoint)
 		if err != nil {
