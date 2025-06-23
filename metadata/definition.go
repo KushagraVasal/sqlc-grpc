@@ -499,7 +499,6 @@ func ParsePackage(opts PackageOpts, queriesToIgnore []*regexp.Regexp, modCfg con
 			}
 		}
 
-		pkgServices := make([]*Service, 0)
 		for _, s := range p.Services {
 			httpSpecs := make([]HttpSpec, 0)
 			for _, spec := range s.HttpSpecs {
@@ -518,11 +517,10 @@ func ParsePackage(opts PackageOpts, queriesToIgnore []*regexp.Regexp, modCfg con
 				}
 			}
 			s.HttpSpecs = httpSpecs
-			if len(s.HttpSpecs) > 0 {
-				pkgServices = append(pkgServices, s)
+			if len(s.HttpSpecs) <= 0 && !slices.Contains(modCfg.RemoveServices, s.Name) {
+				modCfg.RemoveServices = append(modCfg.RemoveServices, s.Name)
 			}
 		}
-		p.Services = pkgServices
 
 		p.GlobalMod(modCfg, roles)
 
