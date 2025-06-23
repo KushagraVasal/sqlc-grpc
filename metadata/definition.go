@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -497,6 +498,31 @@ func ParsePackage(opts PackageOpts, queriesToIgnore []*regexp.Regexp, modCfg con
 				}
 			}
 		}
+
+		pkgServices := make([]*Service, 0)
+		for _, s := range p.Services {
+			httpSpecs := make([]HttpSpec, 0)
+			for _, spec := range s.HttpSpecs {
+				if len(spec.Roles) > 0 {
+					isExist := false
+					for _, role := range spec.Roles {
+						if slices.Contains(roles, role) {
+							isExist = true
+						}
+					}
+					if isExist {
+						httpSpecs = append(httpSpecs, spec)
+					}
+				} else {
+					httpSpecs = append(httpSpecs, spec)
+				}
+			}
+			s.HttpSpecs = httpSpecs
+			if len(s.HttpSpecs) > 0 {
+				pkgServices = append(pkgServices, s)
+			}
+		}
+		p.Services = pkgServices
 
 		p.GlobalMod(modCfg, roles)
 

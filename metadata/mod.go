@@ -90,30 +90,6 @@ func (pkg *Package) GlobalMod(modCfg config.ModConfig, roles []string) {
 }
 
 func (pkg *Package) ProtoMod(modCfg config.ModConfig, roles []string) {
-	pkgServices := make([]*Service, 0)
-	for _, s := range pkg.Services {
-		httpSpecs := make([]HttpSpec, 0)
-		for _, spec := range s.HttpSpecs {
-			if len(spec.Roles) > 0 {
-				isExist := false
-				for _, role := range spec.Roles {
-					if slices.Contains(roles, role) {
-						isExist = true
-					}
-				}
-				if isExist {
-					httpSpecs = append(httpSpecs, spec)
-				}
-			} else {
-				httpSpecs = append(httpSpecs, spec)
-			}
-		}
-		s.HttpSpecs = httpSpecs
-		if len(s.HttpSpecs) > 0 {
-			pkgServices = append(pkgServices, s)
-		}
-	}
-	pkg.Services = pkgServices
 	pkg.FilterServices(modCfg.IgnoreServices)
 	for _, s := range modCfg.AddFields {
 		var msg *Message
