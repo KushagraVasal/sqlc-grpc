@@ -365,6 +365,9 @@ func (p *Package) addUserDefinedMessage(protoMessage *proto.Message) {
 
 		}
 	}
+	if protoMessage.Name == "ExecResult" {
+		return
+	}
 	p.CustomProtoMessages = append(p.CustomProtoMessages, fmt.Sprintf("message %s {", protoMessage.Name))
 	p.CustomProtoMessages = append(p.CustomProtoMessages, options...)
 	p.CustomProtoMessages = append(p.CustomProtoMessages, fields...)
@@ -578,6 +581,8 @@ func printProtoLiteral(literal proto.LiteralMap, deep int) []string {
 					items = append(items, fmt.Sprintf(`"%s"`, i.Source))
 				}
 				res = append(res, fmt.Sprintf("%s%s: [%s]", prefix, item.Name, strings.Join(items, ", ")))
+			} else if item.Source != "" {
+				res = append(res, fmt.Sprintf("%s%s: %s", prefix, item.Name, item.Source))
 			} else {
 				res = append(res, fmt.Sprintf("%s%s: {", prefix, item.Name))
 				res = append(res, printProtoLiteral(item.OrderedMap, deep+1)...)
