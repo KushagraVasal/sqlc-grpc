@@ -23,7 +23,8 @@ import (
 
 {{$emitDbArgument := .EmitDbArgument}}
 
-{{range .CustomServiceFunctions}}{{ .}}
+{{range .CustomServiceFunctions}}
+{{ .}}
 {{end}}
 
 {{ range .Services }}
